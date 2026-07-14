@@ -7,7 +7,7 @@
 
 ### Added
 
-- Тонкий MCP-клиент `atomno-mcp-erid` (open-core: публичный клиент + приватный hosted-сервер).
+- Тонкий MCP-клиент `atomno-mcp-erid` (публичный клиент + hosted corporate API, тариф Pro).
 - 5 тулов через hosted API: бесплатные `verify_erid`, `audit_ad_page`,
   `check_compliance_38fz`, `explain_marking_requirement` и Pro-тул `audit_batch`.
 - Роль «читалка/валидатор»: обязательный дисклеймер (справочно, не юр-заключение;

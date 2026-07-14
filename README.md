@@ -57,6 +57,7 @@ Cursor / Claude Desktop (`mcp.json` / `claude_desktop_config.json`):
 | `MCP_ERID_API_KEY` | Ключ Pro (заголовок X-API-Key) для `audit_batch`. [Получить](https://atomno-mcp.ru/pricing#erid-pro) | нет (только для Pro-тулов) |
 | `MCP_ERID_API_BASE` | URL hosted-бэкенда (по умолчанию — прод) | нет |
 | `MCP_ERID_TIMEOUT` | Таймаут HTTP, сек (default 30) | нет |
+| `MCP_ERID_LOG_LEVEL` | Уровень логирования (DEBUG/INFO/WARNING/ERROR, default WARNING) | нет |
 
 ## Тулы
 

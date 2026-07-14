@@ -1,13 +1,13 @@
 """FastMCP entrypoint для atomno-mcp-erid (тонкий клиент).
 
-Все тулы проксируют к hosted-бэкенду Atomno Labs. Проверочные тулы
+Все тулы проксируют к hosted-бэкенду Atomno MCP. Проверочные тулы
 (verify_erid / audit_ad_page / check_compliance_38fz / explain_marking_requirement)
 работают БЕЗ ключа (лимит по IP на бэкенде). Pro-тул `audit_batch` требует
 MCP_ERID_API_KEY. Каждый ответ несёт disclaimer/source.
 
 Роль инструмента — «читалка/валидатор»: справочно, не юридическое заключение;
 ответственность за маркировку рекламы по 38-ФЗ несёт рекламодатель/
-рекламораспространитель (см. spec §1, §8, FR-004).
+рекламораспространитель.
 """
 
 from __future__ import annotations
