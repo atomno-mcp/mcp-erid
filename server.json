@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.atomno-mcp/mcp-erid",
-  "description": "Russian internet-ad marking (маркировка рекламы, 38-ФЗ) checker — validate an erid token, audit an ad page for the «Реклама» label, advertiser details and erid, run a 38-ФЗ compliance checklist, and explain the marking rules. Read-only validator, advisory only.",
+  "description": "Russian ad marking (38-FZ) checker: erid validation, ad-page audit, compliance hints.",
   "repository": {
     "url": "https://github.com/atomno-mcp/mcp-erid",
     "source": "github"
