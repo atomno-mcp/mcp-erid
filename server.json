@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.atomno-mcp/mcp-erid",
+  "description": "Russian internet-ad marking (маркировка рекламы, 38-ФЗ) checker — validate an erid token, audit an ad page for the «Реклама» label, advertiser details and erid, run a 38-ФЗ compliance checklist, and explain the marking rules. Read-only validator, advisory only.",
+  "repository": {
+    "url": "https://github.com/atomno-mcp/mcp-erid",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "atomno-mcp-erid",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "MCP_ERID_API_KEY",
+          "description": "API key (Pro tier) for batch ad-placement auditing (audit_batch). Optional: verify_erid, audit_ad_page, check_compliance_38fz and explain_marking_requirement work without a key.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
