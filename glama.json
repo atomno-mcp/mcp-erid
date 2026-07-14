@@ -1,4 +1,8 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
-  "maintainers": ["atomnos"]
+  "maintainers": [
+    "atomnos"
+  ],
+  "name": "mcp-erid",
+  "description": "Russian ad marking (38-FZ) checker: erid validation, ad-page audit, compliance hints."
 }
