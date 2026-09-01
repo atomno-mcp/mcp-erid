@@ -1,10 +1,10 @@
 <!-- mcp-name: io.github.atomno-mcp/mcp-erid -->
+
 # atomno-mcp-erid
 
-**Проверка маркировки интернет-рекламы прямо в AI-ассистенте** — Russian
-internet-ad marking (38-ФЗ) checker for AI agents: validate an `erid` token,
-audit an ad page for the «Реклама» label and advertiser details, run a 38-ФЗ
-compliance checklist. Works in Cursor, Claude Desktop, Cline, and any MCP client.
+Проверка маркировки интернет-рекламы: токен ERID, пометка «Реклама» и справочная оценка по 38-ФЗ. Перед публикацией поста или баннера — спросите ассистента, правильно ли размечен материал.
+
+Russian ad marking checker for AI agents.
 
 Перед публикацией рекламного поста или баннера — за секунды убедитесь, что он
 размечен правильно, и не «прилетит» штраф по ст. 14.3 КоАП. Спросите ассистента
