@@ -1,13 +1,8 @@
 """FastMCP entrypoint для atomno-mcp-erid (тонкий клиент).
 
-Все тулы проксируют к hosted-бэкенду Atomno MCP. Проверочные тулы
-(verify_erid / audit_ad_page / check_compliance_38fz / explain_marking_requirement)
-работают БЕЗ ключа (лимит по IP на бэкенде). Pro-тул `audit_batch` требует
-MCP_ERID_API_KEY. Каждый ответ несёт disclaimer/source.
-
-Роль инструмента — «читалка/валидатор»: справочно, не юридическое заключение;
-ответственность за маркировку рекламы по 38-ФЗ несёт рекламодатель/
-рекламораспространитель.
+Роль — проверка формата токена erid, не поиск в реестре ЕРИР (база закрыта).
+Разбор страницы и пакетная проверка ещё не подключены. На публичном адресе
+сейчас все тулы отвечают ready=false. Справочно, не юридическое заключение.
 """
 
 from __future__ import annotations
@@ -47,19 +42,13 @@ DISCLAIMER = (
 mcp: FastMCP = FastMCP(
     name="atomno-mcp-erid",
     instructions=(
-        "Russian internet-ad marking (маркировка рекламы, 38-ФЗ) checker for AI "
-        "agents: validate an erid token, audit an ad page/post for the mandatory "
-        "«Реклама» label, advertiser details and an erid on the surface, run a "
-        "38-ФЗ compliance checklist over the collected signals, and explain the "
-        "marking requirements (erid / ОРД / ЕРИР, responsibility, deadlines, "
-        "fines). The tool is a read-only validator — it does not place, register "
-        "or mark ads. verify_erid / audit_ad_page / check_compliance_38fz / "
-        "explain_marking_requirement are free (rate-limited by IP); batch auditing "
-        "(audit_batch) needs a Pro key (MCP_ERID_API_KEY). Every answer carries a "
-        "disclaimer and a source; it is advisory, not a legal opinion, and "
-        "responsibility for ad marking under 38-ФЗ stays with the advertiser / "
-        "distributor. Only publicly available data is used; the full ЕРИР registry "
-        "is closed (РКН/ФАС). Pro key: https://atomno-mcp.ru/pricing#erid-pro."
+        "Russian ad-marking MCP. This is a format helper for an erid token "
+        "(length and allowed characters), not a lookup in the closed ЕРИР "
+        "registry. Page audit, live 38-FZ checklist and batch audit are not "
+        "connected. The public hosted API currently returns ready=false for all "
+        "tools, including verify_erid. Do not treat that as «erid not found in "
+        "the registry». Advisory only; marking duty stays with the advertiser. "
+        "Pro key for audit_batch: https://atomno-mcp.ru/pricing#erid-pro."
     ),
 )
 
@@ -156,7 +145,7 @@ async def verify_erid(
         Field(min_length=1, description="Токен идентификатора рекламы для проверки (напр. «2Vfnxxxxxx»)."),
     ],
 ) -> dict[str, Any]:
-    """Валидация токена erid: формат/контрольные признаки, найден ли по публичным данным, читаемость. Бесплатно."""
+    """Проверка формата токена erid (длина и символы). В реестр ЕРИР не ходит: база закрыта. На живом адресе сейчас ready=false. Бесплатно."""
     return await _proxy_call(
         "verify_erid",
         lambda: _call(lambda c: c.verify_erid(erid)),
@@ -170,7 +159,7 @@ async def audit_ad_page(
         Field(min_length=1, description="URL рекламной страницы/поста для аудита маркировки."),
     ],
 ) -> dict[str, Any]:
-    """Аудит рекламной поверхности: наличие пометки «Реклама», данных рекламодателя, привязки erid (present/absent/uncertain). Бесплатно."""
+    """Разбор рекламной страницы ещё не подключён. Ответ: ready=false, источник подключается. Бесплатно."""
     return await _proxy_call(
         "audit_ad_page",
         lambda: _call(lambda c: c.audit_ad_page(url)),
@@ -196,7 +185,7 @@ async def check_compliance_38fz(
         Field(default=None, description="URL размещения (контекст проверки)."),
     ] = None,
 ) -> dict[str, Any]:
-    """Детерминированный чек-лист соответствия 38-ФЗ по собранным признакам: вердикт ok / issues / insufficient_data. Бесплатно."""
+    """Чек-лист 38-ФЗ по живой странице ещё не подключён. Ответ: ready=false, источник подключается. Бесплатно."""
     return await _proxy_call(
         "check_compliance_38fz",
         lambda: _call(lambda c: c.check_compliance(has_ad_label, has_advertiser_info, erid, url)),
@@ -210,7 +199,7 @@ async def explain_marking_requirement(
         Field(min_length=1, description="Тема справки: erid, ord, erir, responsibility, deadlines, fines и т.п."),
     ],
 ) -> dict[str, Any]:
-    """Справка по требованиям маркировки рекламы (что такое erid/ОРД/ЕРИР, кто за что отвечает, сроки, штрафы). Бесплатно."""
+    """Справка по маркировке. На живом адресе сейчас ready=false; в коде есть краткие тексты по темам. Не реестр. Бесплатно."""
     return await _proxy_call(
         "explain_marking_requirement",
         lambda: _call(lambda c: c.explain(topic)),
@@ -224,7 +213,7 @@ async def audit_batch(
         Field(min_length=1, max_length=100, description="Список URL размещений для пакетной проверки маркировки."),
     ],
 ) -> dict[str, Any]:
-    """Пакетная проверка размещений: таблица результатов по каждому url. Тариф Pro (MCP_ERID_API_KEY)."""
+    """Пакетная проверка размещений ещё не подключена. Ответ: ready=false, источник подключается. Тариф Pro."""
     return await _hosted_call(
         "audit_batch",
         lambda: _call(lambda c: c.audit_batch(urls)),
@@ -235,8 +224,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="atomno-mcp-erid",
         description=(
-            "MCP server: проверка маркировки интернет-рекламы РФ (38-ФЗ): "
-            "валидация erid, аудит страницы, чек-лист 38-ФЗ."
+            "MCP server: erid token format check. ERIR registry is closed; "
+            "page audit is not connected."
         ),
     )
     parser.add_argument(

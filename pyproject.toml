@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "atomno-mcp-erid"
 version = "0.1.4"
-description = "MCP server: Russian internet-ad marking (маркировка рекламы, 38-ФЗ) checker — validate an erid token, audit an ad page for the «Реклама» label, advertiser details and erid, run a 38-ФЗ compliance checklist, and explain the marking rules. Read-only validator, advisory only."
+description = "MCP client for Russian ad marking. Checks erid token format; does not query the closed ERIR registry. Page audit is not connected. Advisory only."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
