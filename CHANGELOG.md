@@ -3,6 +3,18 @@
 Все заметные изменения фиксируются здесь. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [0.1.5] — 2026-09-04
+
+### Added
+
+- Тул `lookup_erid`: поиск креатива в кабинете ОРД VK по ключу клиента (`GET /v2/creative/by_erid/{erid}`).
+- Переменные `MCP_ERID_ORD_TOKEN`, `MCP_ERID_ORD_PROVIDER`, `MCP_ERID_ORD_BASE_URL`.
+
+### Changed
+
+- `verify_erid` проверяет формат токена локально.
+- `lookup_erid` без ключа ОРД отвечает `source_not_configured`; неверный ключ — `invalid_credentials`.
+
 ## [0.1.0] — 2026-07-04
 
 ### Added

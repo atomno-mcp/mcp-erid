@@ -4,5 +4,5 @@
     "atomnos"
   ],
   "name": "mcp-erid",
-  "description": "Ad-marking MCP. Checks erid token format; ERIR registry is closed."
+  "description": "Erid format check; ORD cabinet lookup on the client key."
 }

@@ -2,26 +2,38 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.atomno-mcp/mcp-erid",
   "title": "mcp-erid",
-  "description": "Ad-marking MCP. Checks erid token format; ERIR registry is closed.",
+  "description": "Erid format check; ORD cabinet lookup on the client key.",
   "repository": {
     "url": "https://github.com/atomno-mcp/mcp-erid",
     "source": "github"
   },
-  "version": "0.1.4",
+  "version": "0.1.5",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "atomno-mcp-erid",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
+          "name": "MCP_ERID_ORD_TOKEN",
+          "description": "API key from the client's ORD cabinet (VK documented).",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MCP_ERID_ORD_PROVIDER",
+          "description": "ORD operator id. Currently vk. yandex lookup spec is not public.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "MCP_ERID_API_KEY",
-          "description": "API key (Pro tier) for audit_batch. Page audit and batch check are not connected; ERIR lookup is unavailable.",
+          "description": "Optional key for Atomno hosted placement. Not an ORD key.",
           "isRequired": false,
           "isSecret": true
         }

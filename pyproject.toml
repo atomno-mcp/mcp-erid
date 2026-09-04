@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomno-mcp-erid"
-version = "0.1.4"
-description = "MCP client for Russian ad marking. Checks erid token format; does not query the closed ERIR registry. Page audit is not connected. Advisory only."
+version = "0.1.5"
+description = "MCP for Russian ad marking: erid format check; ORD cabinet lookup on the client key. Advisory only."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -65,6 +65,7 @@ atomno-mcp-erid = "mcp_erid.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_erid"]
+include = ["src/mcp_erid/py.typed"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

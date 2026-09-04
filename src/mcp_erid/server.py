@@ -1,8 +1,9 @@
-"""FastMCP entrypoint для atomno-mcp-erid (тонкий клиент).
+"""FastMCP entrypoint для atomno-mcp-erid.
 
-Роль — проверка формата токена erid, не поиск в реестре ЕРИР (база закрыта).
-Разбор страницы и пакетная проверка ещё не подключены. На публичном адресе
-сейчас все тулы отвечают ready=false. Справочно, не юридическое заключение.
+verify_erid — только формат токена, не реестр ЕРИР.
+lookup_erid — кабинет ОРД клиента (сейчас описан обмен ОРД VK).
+Разбор страницы и пакетная проверка ещё не подключены.
+Справочно, не юридическое заключение.
 """
 
 from __future__ import annotations
@@ -19,8 +20,17 @@ from pydantic import Field
 
 from . import __version__
 from .client import EridClient
-from .config import Settings
-from .errors import BackendError, EridError
+from .config import DEFAULT_VK_BASE, Settings
+from .errors import (
+    AuthError,
+    BackendError,
+    EridError,
+    NotFoundInCabinet,
+    SourceUnavailable,
+)
+from .explain import explain_topic
+from .formatcheck import format_result
+from .ord_vk import OrdVkClient
 
 logger = logging.getLogger("mcp_erid")
 
@@ -42,13 +52,11 @@ DISCLAIMER = (
 mcp: FastMCP = FastMCP(
     name="atomno-mcp-erid",
     instructions=(
-        "Russian ad-marking MCP. This is a format helper for an erid token "
-        "(length and allowed characters), not a lookup in the closed ЕРИР "
-        "registry. Page audit, live 38-FZ checklist and batch audit are not "
-        "connected. The public hosted API currently returns ready=false for all "
-        "tools, including verify_erid. Do not treat that as «erid not found in "
-        "the registry». Advisory only; marking duty stays with the advertiser. "
-        "Pro key for audit_batch: https://atomno-mcp.ru/pricing#erid-pro."
+        "Russian ad-marking MCP. verify_erid checks token format only — it does "
+        "not query ERIR. lookup_erid uses the client's ORD cabinet key "
+        "(VK is implemented from the public ORD API spec). We have no ERIR "
+        "access of our own; live ORD keys have not been verified. Page audit "
+        "and batch audit are not connected. Advisory only."
     ),
 )
 
@@ -78,59 +86,87 @@ def _close_client_atexit() -> None:
         pass
 
 
-def _no_token_hint() -> dict[str, Any]:
-    return {
-        "error": "missing_token",
-        "message_ru": (
-            "Не задан MCP_ERID_API_KEY. Пакетная проверка размещений — платная "
-            "(тариф Pro). Ключ: https://atomno-mcp.ru/pricing#erid-pro. Разовые "
-            "проверки (verify_erid, audit_ad_page, check_compliance_38fz, "
-            "explain_marking_requirement) доступны без ключа."
-        ),
-        "disclaimer": DISCLAIMER,
-    }
+def _with_disclaimer(payload: dict[str, Any]) -> dict[str, Any]:
+    payload.setdefault("disclaimer", DISCLAIMER)
+    return payload
 
 
-async def _proxy_call(name: str, coro_factory) -> dict[str, Any]:
-    """Свободный вызов hosted-бэкенда (без обязательного ключа; лимит по IP)."""
-    try:
-        result = await coro_factory()
-        result.setdefault("disclaimer", DISCLAIMER)
-        return result
-    except BackendError as exc:
-        logger.warning("%s backend %s: %s", name, exc.status_code, exc.detail)
-        return {
-            "error": "backend_error",
-            "status": exc.status_code,
-            "message": exc.detail,
-            "disclaimer": DISCLAIMER,
+def _no_ord_hint() -> dict[str, Any]:
+    return _with_disclaimer(
+        {
+            "ready": False,
+            "error": "source_not_configured",
+            "found": None,
+            "message_ru": (
+                "Поиск в кабинете ОРД не настроен. Задайте MCP_ERID_ORD_TOKEN "
+                "(ключ из кабинета оператора) и MCP_ERID_ORD_PROVIDER=vk. "
+                "Ключ берётся в кабинете ОРД VK: «Ключи доступа к API». "
+                "Своего доступа к ЕРИР у нас нет и не будет; на живом ключе "
+                "клиента обмен не проверяли. Проверка формата — verify_erid, "
+                "без ключа. Наше размещение — отдельная услуга (MCP_ERID_API_KEY)."
+            ),
+            "source": "ОРД клиента",
         }
-    except EridError as exc:
-        logger.warning("%s failed: %s", name, exc)
-        return {"error": "unavailable", "message": str(exc), "disclaimer": DISCLAIMER}
+    )
+
+
+def _yandex_spec_closed() -> dict[str, Any]:
+    return _with_disclaimer(
+        {
+            "ready": False,
+            "error": "spec_closed",
+            "found": None,
+            "message_ru": (
+                "Для ОРД Яндекса в открытой справке есть подключение и токен, "
+                "но устойчивого описания метода «найти креатив по erid» "
+                "недостаточно. Запрос не выдумываем. Сейчас по ключу работает "
+                "только ОРД VK (GET /v2/creative/by_erid/{erid})."
+            ),
+            "source": "ОРД Яндекса",
+        }
+    )
 
 
 async def _hosted_call(name: str, coro_factory) -> dict[str, Any]:
-    """Вызов Pro-тула: требует ключ, иначе подсказка."""
     if not _settings.has_token:
-        return _no_token_hint()
+        return _with_disclaimer(
+            {
+                "ready": False,
+                "error": "source_not_configured",
+                "message_ru": (
+                    "Пакетная проверка на нашем размещении не настроена "
+                    "(MCP_ERID_API_KEY). Разбор страницы сам по себе ещё не подключён."
+                ),
+                "source": "наше размещение atomno-mcp",
+            }
+        )
     try:
         result = await coro_factory()
-        result.setdefault("disclaimer", DISCLAIMER)
-        return result
+        return _with_disclaimer(result)
     except BackendError as exc:
-        if exc.status_code == 401:
-            return _no_token_hint()
+        if exc.status_code in (401, 403):
+            return _with_disclaimer(
+                {
+                    "ready": False,
+                    "error": "invalid_credentials",
+                    "message_ru": (
+                        "Ключ нашего размещения (MCP_ERID_API_KEY) не принят. "
+                        "Это не ответ «размещений не найдено»."
+                    ),
+                    "source": "наше размещение atomno-mcp",
+                }
+            )
         logger.warning("%s backend %s: %s", name, exc.status_code, exc.detail)
-        return {
-            "error": "backend_error",
-            "status": exc.status_code,
-            "message": exc.detail,
-            "disclaimer": DISCLAIMER,
-        }
+        return _with_disclaimer(
+            {
+                "error": "backend_error",
+                "status": exc.status_code,
+                "message": exc.detail,
+            }
+        )
     except EridError as exc:
         logger.warning("%s failed: %s", name, exc)
-        return {"error": "unavailable", "message": str(exc), "disclaimer": DISCLAIMER}
+        return _with_disclaimer({"error": "unavailable", "message": str(exc)})
 
 
 async def _call(fn) -> dict[str, Any]:
@@ -142,14 +178,91 @@ async def _call(fn) -> dict[str, Any]:
 async def verify_erid(
     erid: Annotated[
         str,
-        Field(min_length=1, description="Токен идентификатора рекламы для проверки (напр. «2Vfnxxxxxx»)."),
+        Field(min_length=1, description="Токен идентификатора рекламы для проверки формата (напр. «2Vfnxxxxxx»)."),
     ],
 ) -> dict[str, Any]:
-    """Проверка формата токена erid (длина и символы). В реестр ЕРИР не ходит: база закрыта. На живом адресе сейчас ready=false. Бесплатно."""
-    return await _proxy_call(
-        "verify_erid",
-        lambda: _call(lambda c: c.verify_erid(erid)),
+    """Проверка формата токена erid (длина и символы). В ЕРИР не ходит. Бесплатно, без ключа."""
+    return _with_disclaimer(format_result(erid))
+
+
+@mcp.tool
+async def lookup_erid(
+    erid: Annotated[
+        str,
+        Field(min_length=1, description="Токен erid для поиска в кабинете вашего ОРД."),
+    ],
+) -> dict[str, Any]:
+    """Поиск креатива в кабинете ОРД клиента. Сейчас по открытому описанию — ОРД VK. Не общий ЕРИР."""
+    if not _settings.has_ord:
+        return _no_ord_hint()
+    provider = _settings.ord_provider or "vk"
+    if provider == "yandex":
+        return _yandex_spec_closed()
+    if provider != "vk":
+        return _with_disclaimer(
+            {
+                "ready": False,
+                "error": "source_not_configured",
+                "found": None,
+                "message_ru": (
+                    f"Оператор «{provider}» не реализован. "
+                    "Задайте MCP_ERID_ORD_PROVIDER=vk — для него есть "
+                    "официальный метод GET /v2/creative/by_erid/{{erid}}."
+                ),
+                "source": "ОРД клиента",
+            }
+        )
+    client = OrdVkClient(
+        token=_settings.ord_token or "",
+        base_url=_settings.ord_base_url or DEFAULT_VK_BASE,
+        timeout=_settings.timeout,
     )
+    try:
+        return _with_disclaimer(await client.get_by_erid(erid))
+    except AuthError as exc:
+        return _with_disclaimer(
+            {
+                "ready": False,
+                "error": "invalid_credentials",
+                "found": None,
+                "message_ru": str(exc),
+                "source": "ОРД VK",
+            }
+        )
+    except NotFoundInCabinet as exc:
+        return _with_disclaimer(
+            {
+                "ready": True,
+                "error": None,
+                "found": False,
+                "erid": erid.strip(),
+                "scope": "ord_cabinet",
+                "message_ru": str(exc),
+                "source": "ОРД VK",
+            }
+        )
+    except SourceUnavailable as exc:
+        return _with_disclaimer(
+            {
+                "ready": False,
+                "error": "source_unavailable",
+                "found": None,
+                "message_ru": str(exc),
+                "source": "ОРД VK",
+            }
+        )
+    except EridError as exc:
+        return _with_disclaimer(
+            {
+                "ready": False,
+                "error": "upstream_error",
+                "found": None,
+                "message_ru": str(exc),
+                "source": "ОРД VK",
+            }
+        )
+    finally:
+        await client.aclose()
 
 
 @mcp.tool
@@ -159,10 +272,18 @@ async def audit_ad_page(
         Field(min_length=1, description="URL рекламной страницы/поста для аудита маркировки."),
     ],
 ) -> dict[str, Any]:
-    """Разбор рекламной страницы ещё не подключён. Ответ: ready=false, источник подключается. Бесплатно."""
-    return await _proxy_call(
-        "audit_ad_page",
-        lambda: _call(lambda c: c.audit_ad_page(url)),
+    """Разбор рекламной страницы ещё не подключён. Честный отказ, не «маркировки нет»."""
+    del url
+    return _with_disclaimer(
+        {
+            "ready": False,
+            "error": "not_implemented",
+            "message_ru": (
+                "Разбор рекламной страницы не подключён. "
+                "Это не ответ «на странице нет маркировки»."
+            ),
+            "source": "разбор страницы",
+        }
     )
 
 
@@ -185,10 +306,18 @@ async def check_compliance_38fz(
         Field(default=None, description="URL размещения (контекст проверки)."),
     ] = None,
 ) -> dict[str, Any]:
-    """Чек-лист 38-ФЗ по живой странице ещё не подключён. Ответ: ready=false, источник подключается. Бесплатно."""
-    return await _proxy_call(
-        "check_compliance_38fz",
-        lambda: _call(lambda c: c.check_compliance(has_ad_label, has_advertiser_info, erid, url)),
+    """Чек-лист 38-ФЗ по живой странице ещё не подключён. Честный отказ."""
+    del has_ad_label, has_advertiser_info, erid, url
+    return _with_disclaimer(
+        {
+            "ready": False,
+            "error": "not_implemented",
+            "message_ru": (
+                "Чек-лист 38-ФЗ по живой странице не подключён. "
+                "Это не юридическое заключение и не «нарушений нет»."
+            ),
+            "source": "38-ФЗ чек-лист",
+        }
     )
 
 
@@ -199,11 +328,8 @@ async def explain_marking_requirement(
         Field(min_length=1, description="Тема справки: erid, ord, erir, responsibility, deadlines, fines и т.п."),
     ],
 ) -> dict[str, Any]:
-    """Справка по маркировке. На живом адресе сейчас ready=false; в коде есть краткие тексты по темам. Не реестр. Бесплатно."""
-    return await _proxy_call(
-        "explain_marking_requirement",
-        lambda: _call(lambda c: c.explain(topic)),
-    )
+    """Краткая справка по маркировке. Не реестр. Без ключа."""
+    return _with_disclaimer(explain_topic(topic))
 
 
 @mcp.tool
@@ -213,10 +339,18 @@ async def audit_batch(
         Field(min_length=1, max_length=100, description="Список URL размещений для пакетной проверки маркировки."),
     ],
 ) -> dict[str, Any]:
-    """Пакетная проверка размещений ещё не подключена. Ответ: ready=false, источник подключается. Тариф Pro."""
-    return await _hosted_call(
-        "audit_batch",
-        lambda: _call(lambda c: c.audit_batch(urls)),
+    """Пакетная проверка размещений ещё не подключена. Честный отказ."""
+    del urls
+    return _with_disclaimer(
+        {
+            "ready": False,
+            "error": "not_implemented",
+            "message_ru": (
+                "Пакетная проверка размещений не подключена. "
+                "Это не ответ «нарушений не найдено»."
+            ),
+            "source": "пакетный аудит",
+        }
     )
 
 
@@ -224,8 +358,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="atomno-mcp-erid",
         description=(
-            "MCP server: erid token format check. ERIR registry is closed; "
-            "page audit is not connected."
+            "MCP server: erid format check; ORD cabinet lookup on the client key."
         ),
     )
     parser.add_argument(

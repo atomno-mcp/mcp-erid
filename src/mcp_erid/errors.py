@@ -18,3 +18,15 @@ class BackendError(EridError):
 
 class BackendUnavailable(EridError):
     """Бэкенд недоступен (сеть / таймаут)."""
+
+
+class AuthError(EridError):
+    """ОРД отклонил ключ клиента."""
+
+
+class NotFoundInCabinet(EridError):
+    """Креатив не найден в кабинете этого ОРД (не «нет в ЕРИР»)."""
+
+
+class SourceUnavailable(EridError):
+    """ОРД или другой источник не ответил."""
