@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atomno-mcp-erid"
-version = "0.1.5"
+version = "0.1.6"
 description = "MCP for Russian ad marking: erid format check; ORD cabinet lookup on the client key. Advisory only."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "atomno-mcp", email = "hello@atomno.ru" }]
+authors = [{ name = "atomno-mcp", email = "hello@atomno-mcp.ru" }]
 keywords = [
   "mcp",
   "model-context-protocol",

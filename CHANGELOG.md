@@ -3,6 +3,12 @@
 Все заметные изменения фиксируются здесь. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [0.1.6] — 2026-11-23
+
+### Fixed
+
+- Обновлён адрес автора Python-пакета.
+
 ## [0.1.5] — 2026-09-04
 
 ### Added
